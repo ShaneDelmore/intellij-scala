@@ -842,7 +842,22 @@ class SingleAbstractMethodTest_2_11 extends SingleAbstractMethodTestBase {
         |  def changed(observable: P[_ <: T])
         |}
         |
-        |def l[T]: MyChangeListener[_ >: T] = (observable: P[_ <: T]) => ()
+        |def l[T]: MyChangeListener[_ <: T] = (observable: P[_ <: T]) => ()
+      """.stripMargin
+
+    checkCodeHasNoErrors(code)
+  }
+
+  def testSAMCorrectWildcardExtrapolationWithExistentialTypes2(): Unit = {
+    val code =
+      """
+        |class P[R]
+        |
+        |trait MyChangeListener[T] {
+        |  def changed(observable: P[_ >: T])
+        |}
+        |
+        |def l[T]: MyChangeListener[_ >: T] = (observable: P[_ >: T]) => ()
       """.stripMargin
 
     checkCodeHasNoErrors(code)

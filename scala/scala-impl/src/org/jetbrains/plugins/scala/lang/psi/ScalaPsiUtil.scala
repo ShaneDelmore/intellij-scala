@@ -1811,25 +1811,26 @@ object ScalaPsiUtil {
         tp match {
           case FunctionType(retTp, params) =>
             def convertParameter(tpArg: ScType, variance: Variance): ScType = {
+              object WildcardOrAbstract {
+                def unapply(tp: ScType): Option[(ScType, ScType)] = tp match {
+                  case ScExistentialArgument(_, _, lower, upper) => Some((lower, upper))
+                  case ScAbstractType(_, lower, upper)           => Some((lower, upper))
+                  case _                                         => None
+                }
+              }
+
               tpArg match {
-                case ParameterizedType(des, tpArgs) => ScParameterizedType(des, tpArgs.map(convertParameter(_, variance)))
-                case ScExistentialType(param: ScParameterizedType, _) if scalaVersion == ScalaLanguageLevel.Scala_2_11 =>
+                case ParameterizedType(des, tpArgs) =>
+                  ScParameterizedType(des, tpArgs.map(convertParameter(_, variance)))
+                case ScExistentialType(param: ScParameterizedType, _) =>
                   convertParameter(param, variance)
-                case _ =>
-                  wildcards.find(_.name == tpArg.canonicalText) match {
-                    case Some(wildcard) =>
-                      (wildcard.lower, wildcard.upper) match {
-                        // todo: Produces Bad code is green
-                        // Problem is in Java wildcards. How to convert them if it's _ >: Lower, when generic has Upper.
-                        // Earlier we converted with Any upper type, but then it was changed because of type incompatibility.
-                        // Right now the simplest way is Bad Code is Green as otherwise we need to fix this inconsistency somehow.
-                        // I has no idea how yet...
-                        case (lo, _) if variance == Contravariant => lo
-                        case (lo, hi) if lo.isNothing && variance == Covariant => hi
-                        case _ => tpArg
-                      }
+                case WildcardOrAbstract(lower, upper) =>
+                  variance match {
+                    case Contravariant if !lower.isNothing     => convertParameter(lower, variance)
+                    case Covariant     if lower.isNothing      => convertParameter(upper, variance)
                     case _ => tpArg
                   }
+                case _ => tpArg
               }
             }
 

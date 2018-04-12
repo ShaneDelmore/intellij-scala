@@ -283,18 +283,15 @@ class ScExistentialArgument private (val name: String,
       id)
   }
 
-  def recursiveVarianceUpdateModifiableNoUpdate[T](data: T, update: (ScType, Variance, T) => (Boolean, ScType, T),
-                                                            variance: Variance = Covariant): ScExistentialArgument = {
-    ScExistentialArgument(name, args, lower.recursiveVarianceUpdateModifiable(data, update, Contravariant),
-      upper.recursiveVarianceUpdateModifiable(data, update, Covariant), id)
-  }
-
   override def recursiveVarianceUpdateModifiable[T](data: T, update: (ScType, Variance, T) => (Boolean, ScType, T),
                                                     v: Variance = Covariant, revertVariances: Boolean = false): ScType = {
     update(this, v, data) match {
       case (true, res, _) => res
       case (_, _, newData) =>
-        recursiveVarianceUpdateModifiableNoUpdate(newData, update, v)
+        ScExistentialArgument(name, args,
+          lower.recursiveVarianceUpdateModifiable(newData, update, Contravariant),
+          upper.recursiveVarianceUpdateModifiable(newData, update, Covariant),
+          id)
     }
   }
 
