@@ -18,7 +18,7 @@ import org.jetbrains.plugins.scala.project.ProjectContext
   */
 class ScExistentialType private (val quantified: ScType,
                                  val wildcards: List[ScExistentialArgument],
-                                 private val simplifiedQ: ScType) extends ScalaType with ValueType {
+                                 private val simplified: Option[ScType]) extends ScalaType with ValueType {
 
   override implicit def projectContext: ProjectContext = quantified.projectContext
 
@@ -138,23 +138,8 @@ class ScExistentialType private (val quantified: ScType,
     }
   }
 
-  /** Specification 3.2.10:
-    * 1. Multiple for-clauses in an existential type can be merged. E.g.,
-    * T forSome {Q} forSome {H} is equivalent to T forSome {Q;H}.
-    * 2. Unused quantifications can be dropped. E.g., T forSome {Q;H} where
-    * none of the types defined in H are referred to by T or Q, is equivalent to
-    * T forSome {Q}.
-    * 3. An empty quantification can be dropped. E.g., T forSome { } is equivalent
-    * to T.
-    * 4. An existential type T forSome {Q} where Q contains a clause
-    * type t[tps] >: L <: U is equivalent to the type T' forSome {Q} where
-    * T' results from T by replacing every covariant occurrence (4.5) of t in T by
-    * U and by replacing every contravariant occurrence of t in T by L.
-    *
-    * 1., 2. and 3. are guaranteed by construction (see ScExistentialType.apply)
-    * T' from 4. is also built in the factory method.
-    */
-  def simplify(): ScType = ScExistentialType(simplifiedQ)
+  //see ScExistentialType.apply
+  def simplify(): ScType = simplified.getOrElse(this)
 
   override def visitType(visitor: TypeVisitor): Unit = visitor match {
     case scalaVisitor: ScalaTypeVisitor => scalaVisitor.visitExistentialType(this)
@@ -195,57 +180,67 @@ object ScExistentialType {
     * T forSome {Q}.
     * 3. An empty quantification can be dropped. E.g., T forSome { } is equivalent
     * to T.
-    */
-  final def apply(quantified: ScType): ScType = {
-    quantified match {
-      case e: ScExistentialType =>
-        //first rule
-        ScExistentialType(e.quantified)
-      case _ =>
-        val (simplified, wildcards) = simplifiedAndUsedWildcards(quantified)
-        if (wildcards.nonEmpty) {
-          //second rule
-          new ScExistentialType(quantified, wildcards.toList, simplified)
-        }
-        else simplified //third rule
-    }
-  }
-
-  def apply(quantified: ScType, wildcards: List[ScExistentialArgument]): ScType =
-    ScExistentialType(quantified)
-
-  def unapply(existential: ScExistentialType): Option[(ScType, List[ScExistentialArgument])] =
-    Some((existential.quantified, existential.wildcards))
-
-  /** Specification 3.2.10:
     * 4. An existential type T forSome {Q} where Q contains a clause
-    *    type t[tps] >: L <: U is equivalent to the type T' forSome {Q} where
-    *    T' results from T by replacing every covariant occurrence (4.5) of t in T by
-    *    U and by replacing every contravariant occurrence of t in T by L.
+    * type t[tps] >: L <: U is equivalent to the type T' forSome {Q} where
+    * T' results from T by replacing every covariant occurrence (4.5) of t in T by
+    * U and by replacing every contravariant occurrence of t in T by L.
+    *
+    * Rules 1 - 3 are enforced by construction.
+    * Rule 4 simplification is computed at the same time.
     */
-  private def simplifiedAndUsedWildcards(quantified: ScType): (ScType, Set[ScExistentialArgument]) = {
+  def apply(quantified: ScType): ScType = {
     quantified match {
-      case arg: ScExistentialArgument => (arg.upper, Set(arg)) //treat single existential arg as Covariant
+      case e: ScExistentialType => e //first rule
+      case arg: ScExistentialArgument =>
+        val simplified = ScExistentialType(arg.upper) //treat single existential arg as Covariant
+        new ScExistentialType(arg, List(arg), Some(simplified))
       case _ =>
-        var wildcards = Set.empty[ScExistentialArgument]
+        //collect wildcards and build simplified type in a single pass
+        var wildcards     = Set.empty[ScExistentialArgument] //second rule
+        var nonSimplified = Set.empty[ScExistentialArgument]
+        var hasSimplification = false
 
         val simplification: (ScType, Variance) => (Boolean, ScType) = {
           case (ex: ScExistentialType, _) =>
-            (true, ex.simplifiedQ)
+            (true, ex.simplify())
           case (arg: ScExistentialArgument, variance) =>
             wildcards += arg
 
+            //fourth rule
             val argOrBound = variance match {
-              case Covariant => arg.upper
-              case Contravariant => arg.lower
-              case _ => arg
+              case Covariant =>
+                hasSimplification = true
+                arg.upper
+              case Contravariant =>
+                hasSimplification = true
+                arg.lower
+              case _ =>
+                nonSimplified += arg
+                arg
             }
             (true, argOrBound)
           case (tp, _) => (false, tp)
         }
-        (quantified.recursiveVarianceUpdate(simplification, Invariant), wildcards)
+
+        //has side effects!
+        val simplifiedQ = quantified.recursiveVarianceUpdate(simplification, Invariant)
+
+        if (wildcards.isEmpty) {
+          quantified //third rule
+        }
+        else {
+          val simplified =
+            if (hasSimplification)
+              Some(new ScExistentialType(simplifiedQ, nonSimplified.toList, None))
+            else None
+
+          new ScExistentialType(quantified, wildcards.toList, simplified)
+        }
     }
   }
+
+  def unapply(existential: ScExistentialType): Option[(ScType, List[ScExistentialArgument])] =
+    Some((existential.quantified, existential.wildcards))
 }
 
 class ScExistentialArgument private (val name: String,

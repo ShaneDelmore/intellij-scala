@@ -130,7 +130,7 @@ case class MostSpecificUtil(elem: PsiElement, length: Int) {
                 val s = ScSubstitutor.bind(typeParams)(toExistentialArg)
                 val arguments = typeParams.toList.map(tp =>
                   ScExistentialArgument(tp.name, List.empty /* todo? */ , s.subst(tp.lowerType), s.subst(tp.upperType), tp.psiTypeParameter))
-                Left(params.map(p => p.copy(paramType = ScExistentialType(s.subst(p.paramType), arguments))))
+                Left(params.map(p => p.copy(paramType = ScExistentialType(s.subst(p.paramType)))))
               }
             case ScTypePolymorphicType(internal, typeParams) =>
               if (!existential) {
@@ -140,7 +140,7 @@ case class MostSpecificUtil(elem: PsiElement, length: Int) {
                 val s = ScSubstitutor.bind(typeParams)(toExistentialArg)
                 val arguments = typeParams.toList.map(tp =>
                   ScExistentialArgument(tp.name, List.empty /* todo? */ , s.subst(tp.lowerType), s.subst(tp.upperType), tp.psiTypeParameter))
-                Right(ScExistentialType(s.subst(internal), arguments))
+                Right(ScExistentialType(s.subst(internal)))
               }
             case _ => Right(tp)
           }
@@ -160,7 +160,7 @@ case class MostSpecificUtil(elem: PsiElement, length: Int) {
                   if (seq != null) {
                     val newParamType = p.paramType match {
                       case ScExistentialType(q, wilds) =>
-                        ScExistentialType(ScParameterizedType(ScDesignatorType(seq), Seq(q)), wilds)
+                        ScExistentialType(ScParameterizedType(ScDesignatorType(seq), Seq(q)))
                       case paramType => ScParameterizedType(ScDesignatorType(seq), Seq(paramType))
                     }
                     Parameter(p.name, p.deprecatedName, newParamType, p.expectedType,

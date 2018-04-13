@@ -272,7 +272,7 @@ trait ScalaBounds extends api.Bounds {
           case (JavaArrayType(arg1), JavaArrayType(arg2)) =>
             val (v, ex) = calcForTypeParamWithoutVariance(arg1, arg2, depth, checkWeak)
             ex match {
-              case Some(w) => ScExistentialType(JavaArrayType(v), List(w))
+              case Some(w) => ScExistentialType(JavaArrayType(v))
               case None => JavaArrayType(v)
             }
           case (JavaArrayType(arg), ParameterizedType(des, args)) if args.length == 1 && (des.extractClass match {
@@ -281,7 +281,7 @@ trait ScalaBounds extends api.Bounds {
           }) =>
             val (v, ex) = calcForTypeParamWithoutVariance(arg, args.head, depth, checkWeak)
             ex match {
-              case Some(w) => ScExistentialType(ScParameterizedType(des, Seq(v)), List(w))
+              case Some(w) => ScExistentialType(ScParameterizedType(des, Seq(v)))
               case None => ScParameterizedType(des, Seq(v))
             }
           case (ParameterizedType(des, args), JavaArrayType(arg)) if args.length == 1 && (des.extractClass match {
@@ -290,7 +290,7 @@ trait ScalaBounds extends api.Bounds {
           }) =>
             val (v, ex) = calcForTypeParamWithoutVariance(arg, args.head, depth, checkWeak)
             ex match {
-              case Some(w) => ScExistentialType(ScParameterizedType(des, Seq(v)), List(w))
+              case Some(w) => ScExistentialType(ScParameterizedType(des, Seq(v)))
               case None => ScParameterizedType(des, Seq(v))
             }
           case (JavaArrayType(_), tp) =>
@@ -399,7 +399,7 @@ trait ScalaBounds extends api.Bounds {
           })
         }
         if (wildcards.isEmpty) ScParameterizedType(baseClassDesignator, resTypeArgs)
-        else ScExistentialType(ScParameterizedType(baseClassDesignator, resTypeArgs), wildcards.toList)
+        else ScExistentialType(ScParameterizedType(baseClassDesignator, resTypeArgs))
       case _ => Any
     }
   }

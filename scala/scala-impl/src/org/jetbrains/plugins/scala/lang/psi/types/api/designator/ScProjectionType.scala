@@ -65,8 +65,8 @@ class ScProjectionType private(val projected: ScType,
         val genericSubst = ScSubstitutor.bind(ta.typeParameters, existentialArgs)
 
         val s = actualSubst.followed(genericSubst)
-        Some(AliasType(ta, ta.lowerBound.map(scType => ScExistentialType(s.subst(scType), existentialArgs)),
-          ta.upperBound.map(scType => ScExistentialType(s.subst(scType), existentialArgs))))
+        Some(AliasType(ta, ta.lowerBound.map(scType => ScExistentialType(s.subst(scType))),
+          ta.upperBound.map(scType => ScExistentialType(s.subst(scType)))))
       case _ => None
     }
   }

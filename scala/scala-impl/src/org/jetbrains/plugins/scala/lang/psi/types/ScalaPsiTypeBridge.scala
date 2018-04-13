@@ -88,7 +88,7 @@ trait ScalaPsiTypeBridge extends api.PsiTypeBridge {
         }
       case wild: PsiWildcardType =>
         val parameter = createParameter(wild)(visitedRawTypes, paramTopLevel = false)
-        ScExistentialType(parameter, List(parameter))
+        ScExistentialType(parameter)
       case _: PsiDisjunctionType => Any
       case _ => super.toScType(psiType, treatJavaObjectAsAny)
     }
